@@ -16,10 +16,12 @@ function build() {
         mkdir -p env/build
     fi
 
-    local cflags="-std=c99 -pedantic-errors -fextended-identifiers -g -x c \
+    local cflags="-std=c11 -pedantic-errors -fextended-identifiers -g -x c \
                   -Wno-format-contains-nul -Wno-format-security"
 
-    gcc $cflags -o "$PROJECT_ROOT/env/build/main" main.c
+    local lflags="-lm"
+
+    gcc $cflags -o "$PROJECT_ROOT/env/build/main" main.c $lflags
 }
 
 function run() {

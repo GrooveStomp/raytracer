@@ -6,7 +6,7 @@
 
 vec3 ComputeColor(ray3 *Ray)
 {
-        vec3 UnitDirection = Vec3Unit(RayDirection(Ray));
+        vec3 UnitDirection = Vec3Unit(Ray->Direction);
         float T = 0.5 * (UnitDirection.Y + 1.0);
 
         vec3 A = { 1.0, 1.0, 1.0 };;
@@ -17,7 +17,7 @@ vec3 ComputeColor(ray3 *Ray)
 //        Vec3Init(&B, 0.5, 0.7, 1.0);
         B = Vec3ScalarMultiply(B, T);
 
-        vec3 Result = Vec3VectorAdd(A, B);
+        vec3 Result = Vec3Add(A, B);
         return(Result);
 }
 
@@ -49,7 +49,7 @@ main(int ArgCount, char **Arguments)
                         Sum = Vec3Add(Sum, VVertical);
                         ray3 Ray = { Origin, Sum };
 
-                        vec3 Color = ComputeColor(Sum);
+                        vec3 Color = ComputeColor(&Ray);
 
                         int RInt = (int)(255.99 * Color.R);
                         int GInt = (int)(255.99 * Color.G);

@@ -19,10 +19,11 @@ typedef struct
                         float G;
                         float B;
                 };
-        }
+        };
 } vec3;
 
-vec3 Vec3Add(vec3 A, vec3 B)
+vec3
+Vec3Add(vec3 A, vec3 B)
 {
         vec3 Result;
         Result.X = A.X + B.X;
@@ -31,7 +32,8 @@ vec3 Vec3Add(vec3 A, vec3 B)
         return(Result);
 }
 
-vec3 Vec3ScalarMultiply(vec3 Vector, float Scalar)
+vec3
+Vec3ScalarMultiply(vec3 Vector, float Scalar)
 {
         vec3 Result;
         Result.X = Vector.X * Scalar;
@@ -40,7 +42,8 @@ vec3 Vec3ScalarMultiply(vec3 Vector, float Scalar)
         return(Result);
 }
 
-vec3 Vec3ScalarDivide(vec3 Vector, float Scalar)
+vec3
+Vec3ScalarDivide(vec3 Vector, float Scalar)
 {
         vec3 Result;
         Result.X = Vector.X / Scalar;
@@ -49,7 +52,8 @@ vec3 Vec3ScalarDivide(vec3 Vector, float Scalar)
         return(Result);
 }
 
-vec3 Vec3Length(vec3 Vector)
+float
+Vec3Length(vec3 Vector)
 {
         float X = Vector.X * Vector.X;
         float Y = Vector.Y * Vector.Y;
@@ -58,7 +62,8 @@ vec3 Vec3Length(vec3 Vector)
         return(Result);
 }
 
-vec3 Vec3Unit(vec3 Vector)
+vec3
+Vec3Unit(vec3 Vector)
 {
         vec3 Result = Vec3ScalarDivide(Vector, Vec3Length(Vector));
         return(Result);
