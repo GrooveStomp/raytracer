@@ -3,18 +3,39 @@
 
 #include "vec3.h"
 #include "ray3.h"
+#include <stdbool.h>
 
-vec3 ComputeColor(ray3 *Ray)
+const vec3 ColorRed = { 1, 0, 0 };
+
+bool
+SphereCollision(vec3 Center, float Radius, ray3 Ray)
 {
-        vec3 UnitDirection = Vec3Unit(Ray->Direction);
+        vec3 ToCircle = Vec3Subtract(Ray.Origin, Center);
+        float A = Vec3Dot(Ray.Direction, Ray.Direction);
+        float B = 2.0 * Vec3Dot(ToCircle, Ray.Direction);
+        float C = Vec3Dot(ToCircle, ToCircle) - (Radius * Radius);
+        float Discriminant = B * B - 4 * A * C;
+
+        bool Result = Discriminant > 0;
+        return(Result);
+}
+
+vec3
+ComputeColor(ray3 Ray)
+{
+        vec3 Temp = { 0, 0, -1 };
+        if(SphereCollision(Temp, 0.5, Ray))
+        {
+                return(ColorRed);
+        }
+
+        vec3 UnitDirection = Vec3Unit(Ray.Direction);
         float T = 0.5 * (UnitDirection.Y + 1.0);
 
         vec3 A = { 1.0, 1.0, 1.0 };;
-//        Vec3Init(&A, 1.0, 1.0, 1.0);
         A = Vec3ScalarMultiply(A, (1.0 - T));
 
         vec3 B = { 0.5, 0.7, 1.0 };;
-//        Vec3Init(&B, 0.5, 0.7, 1.0);
         B = Vec3ScalarMultiply(B, T);
 
         vec3 Result = Vec3Add(A, B);
@@ -49,7 +70,7 @@ main(int ArgCount, char **Arguments)
                         Sum = Vec3Add(Sum, VVertical);
                         ray3 Ray = { Origin, Sum };
 
-                        vec3 Color = ComputeColor(&Ray);
+                        vec3 Color = ComputeColor(Ray);
 
                         int RInt = (int)(255.99 * Color.R);
                         int GInt = (int)(255.99 * Color.G);

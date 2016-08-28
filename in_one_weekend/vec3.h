@@ -33,6 +33,27 @@ Vec3Add(vec3 A, vec3 B)
 }
 
 vec3
+Vec3Subtract(vec3 Minuend, vec3 Subtrahend)
+{
+        vec3 Result;
+        Result.X = Minuend.X - Subtrahend.X;
+        Result.Y = Minuend.Y - Subtrahend.Y;
+        Result.Z = Minuend.Z - Subtrahend.Z;
+        return(Result);
+}
+
+float
+Vec3Dot(vec3 A, vec3 B)
+{
+        vec3 C;
+        C.X = A.X * B.X;
+        C.Y = A.Y * B.Y;
+        C.Z = A.Z * B.Z;
+        float Result = C.X + C.Y + C.Z;
+        return(Result);
+}
+
+vec3
 Vec3ScalarMultiply(vec3 Vector, float Scalar)
 {
         vec3 Result;
