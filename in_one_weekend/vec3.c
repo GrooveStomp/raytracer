@@ -1,5 +1,5 @@
-#ifndef VEC3_H
-#define VEC3_H
+#ifndef VEC3_C
+#define VEC3_C
 
 #include <math.h>
 
@@ -90,4 +90,4 @@ Vec3Unit(vec3 Vector)
         return(Result);
 }
 
-#endif /* VEC3_H */
+#endif /* VEC3_C */

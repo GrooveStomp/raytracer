@@ -1,7 +1,7 @@
-#ifndef RAY3_H
-#define RAY3_H
+#ifndef RAY3_C
+#define RAY3_C
 
-#include "vec3.h"
+#include "vec3.c"
 
 typedef struct
 {
@@ -17,4 +17,4 @@ Ray3Evaluate(ray3 Ray, float Time)
         return(Result);
 }
 
-#endif /* RAY3_H */
+#endif /* RAY3_C */
