@@ -21,17 +21,40 @@ typedef struct
 #include <float.h>
 
 vec3
+RandomPointInUnitSphere()
+{
+        vec3 Point;
+
+        float SquaredLength = 0;
+        do {
+                vec3 Temp = Vec3Init(drand48(), drand48(), drand48());
+                Temp = Vec3ScalarMultiply(Temp, 2.0);
+                Temp = Vec3Subtract(Temp, Vec3Init(1,1,1));
+                Point = Temp;
+
+                float Length = Vec3Length(Point);
+                SquaredLength = Length * Length;
+
+        } while(SquaredLength >= 1.0);
+
+        return(Point);
+}
+
+vec3
 ComputeColor(ray3 Ray, renderable_list *Renderables)
 {
         hit_record Record;
-        if(RenderableListHit(Renderables, Ray, 0.0, FLT_MAX, &Record))
+        if(RenderableListHit(Renderables, Ray, 0.001, FLT_MAX, &Record))
         {
-                vec3 Temp = { 1, 1, 1 };
-                vec3 Temp2 = Vec3Add(Record.Normal, Temp);
-                vec3 Result = Vec3ScalarMultiply(Temp2, 0.5);
+                vec3 Accumulator = Vec3Add(Record.Point, Record.Normal);
+                Accumulator = Vec3Add(Accumulator, RandomPointInUnitSphere());
+                vec3 Target = Accumulator;
 
+                ray3 Ray = Ray3Init(Record.Point, Vec3Subtract(Target, Record.Point));
+                vec3 Color = ComputeColor(Ray, Renderables);
+
+                vec3 Result = Vec3ScalarMultiply(Color, 0.5);
                 return(Result);
-
         }
         else
         {
@@ -86,6 +109,8 @@ main(int ArgCount, char **Arguments)
                                 Color = Vec3Add(Color, ComputedColor);
                         }
                         Color = Vec3ScalarDivide(Color, NumSamples);
+                        /* Perform gamma correction with gamma == 2 */
+                        Color = Vec3Init(sqrt(Color.R), sqrt(Color.G), sqrt(Color.B));
                         int RInt = (int)(255.99 * Color.R);
                         int GInt = (int)(255.99 * Color.G);
                         int BInt = (int)(255.99 * Color.B);

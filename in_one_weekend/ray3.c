@@ -17,4 +17,13 @@ Ray3Evaluate(ray3 Ray, float Time)
         return(Result);
 }
 
+ray3
+Ray3Init(vec3 Origin, vec3 Direction)
+{
+        ray3 Ray;
+        Ray.Origin = Origin;
+        Ray.Direction = Direction;
+        return(Ray);
+}
+
 #endif /* RAY3_C */
