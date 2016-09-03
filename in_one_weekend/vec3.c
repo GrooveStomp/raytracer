@@ -23,6 +23,16 @@ typedef struct
 } vec3;
 
 vec3
+Vec3Init(float A, float B, float C)
+{
+        vec3 Result;
+        Result.X = A;
+        Result.Y = B;
+        Result.Z = C;
+        return(Result);
+}
+
+vec3
 Vec3Add(vec3 A, vec3 B)
 {
         vec3 Result;
