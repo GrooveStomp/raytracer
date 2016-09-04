@@ -3,6 +3,21 @@
 #include <math.h>
 #include <stdlib.h> /* drand48 */
 
+float
+DegreesToRadians(float Degrees)
+{
+        float Ratio = M_PI / 180.0;
+        float Result = Degrees * Ratio;
+        return(Result);
+}
+
+float RadiansToDegrees(float Radians)
+{
+        float Ratio = 180.0 / M_PI;
+        float Result = Radians * Ratio;
+        return(Result);
+}
+
 /******************************************************************************
  * vec3 Interface
  ******************************************************************************/
@@ -77,6 +92,16 @@ Vec3Dot(vec3 A, vec3 B)
 }
 
 vec3
+Vec3Cross(vec3 A, vec3 B)
+{
+        vec3 Result;
+        Result.X =  (A.Y * B.Z - A.Z * B.Y);
+        Result.Y = -(A.X * B.Z - A.Z * B.X);
+        Result.Z =  (A.X * B.Y - A.Y * B.X);
+        return(Result);
+}
+
+vec3
 Vec3ScalarMultiply(vec3 Vector, float Scalar)
 {
         vec3 Result;
@@ -107,7 +132,7 @@ Vec3Length(vec3 Vector)
 }
 
 vec3
-Vec3Unit(vec3 Vector)
+Vec3Normalize(vec3 Vector)
 {
         vec3 Result = Vec3ScalarDivide(Vector, Vec3Length(Vector));
         return(Result);
@@ -127,7 +152,7 @@ Vec3Reflect(vec3 Vector, vec3 Normal)
 bool
 Vec3Refract(vec3 Vector, vec3 Normal, float RefractionRatio, vec3 *Refracted)
 {
-        vec3 UnitVector = Vec3Unit(Vector);
+        vec3 UnitVector = Vec3Normalize(Vector);
         float Dot = Vec3Dot(UnitVector, Normal);
         float Discriminant = 1.0 - RefractionRatio * RefractionRatio * (1 - Dot * Dot);
 
@@ -180,7 +205,7 @@ typedef struct hit_record
         float T;
         vec3 Point;
         vec3 Normal;
-        void *Material; /* lambertian, metal */
+        void *Material; /* lambertian, metal, dielectric */
         bool (*ScatterFn)(void *Material, ray3 Ray, struct hit_record *Record, vec3 *Attenuation, ray3 *Scattered);
 } hit_record;
 
@@ -200,7 +225,7 @@ typedef struct
 {
         vec3 Center;
         float Radius;
-        void *Material; /* lambertian, metal */
+        void *Material; /* lambertian, metal, dielectric */
         scatter_fn ScatterFn;
 } sphere;
 
@@ -348,21 +373,37 @@ typedef struct
 } camera;
 
 void
-CameraInit(camera *Self, vec3 Origin, vec3 LowerLeftCorner, vec3 Horizontal, vec3 Vertical)
+CameraInit(camera *Self, vec3 LookFrom, vec3 LookAt, vec3 Up, float VerticalFOV, float AspectRatio)
 {
-        Self->Origin = Origin;
-        Self->LowerLeftCorner = LowerLeftCorner;
-        Self->Horizontal = Horizontal;
-        Self->Vertical = Vertical;
+        float Theta = DegreesToRadians(VerticalFOV);
+        float HalfHeight = tan(Theta / 2.0);
+        float HalfWidth = AspectRatio * HalfHeight;
+
+        vec3 W = Vec3Normalize(Vec3Subtract(LookFrom, LookAt));
+        vec3 U = Vec3Normalize(Vec3Cross(Up, W));
+        vec3 V = Vec3Cross(W, U);
+
+        vec3 HalfWidthU = Vec3ScalarMultiply(U, HalfWidth);
+        vec3 HalfHeightV = Vec3ScalarMultiply(V, HalfHeight);
+        vec3 Accumulator;
+        Accumulator = Vec3Subtract(LookFrom, HalfWidthU);
+        Accumulator = Vec3Subtract(Accumulator, HalfHeightV);
+        Accumulator = Vec3Subtract(Accumulator, W);
+
+        Self->LowerLeftCorner = Accumulator;
+        Self->Horizontal = Vec3ScalarMultiply(HalfWidthU, 2);
+        Self->Vertical = Vec3ScalarMultiply(HalfHeightV, 2);
+        Self->Origin = LookFrom;
 }
 
 ray3
-CameraGetRay(camera *Self, float U, float V)
+CameraGetRay(camera *Self, float S, float T)
 {
-        vec3 Horizontal = Vec3ScalarMultiply(Self->Horizontal, U);
-        vec3 Vertical = Vec3ScalarMultiply(Self->Vertical, V);
-        vec3 Accumulator = Vec3Add(Self->LowerLeftCorner, Horizontal);
-        Accumulator = Vec3Add(Accumulator, Vertical);
+        vec3 HorizontalS = Vec3ScalarMultiply(Self->Horizontal, S);
+        vec3 VerticalT = Vec3ScalarMultiply(Self->Vertical, T);
+        vec3 Accumulator;
+        Accumulator = Vec3Add(Self->LowerLeftCorner, HorizontalS);
+        Accumulator = Vec3Add(Accumulator, VerticalT);
         Accumulator = Vec3Subtract(Accumulator, Self->Origin);
 
         ray3 Result;
@@ -426,7 +467,7 @@ bool
 MetalScatter(void *Material, ray3 Ray, hit_record *Record, vec3 *Attenuation, ray3 *Scattered)
 {
         metal *Self = (metal *)Material;
-        vec3 Reflected = Vec3Reflect(Vec3Unit(Ray.Direction), Record->Normal);
+        vec3 Reflected = Vec3Reflect(Vec3Normalize(Ray.Direction), Record->Normal);
 
         vec3 Fuzzed = Vec3ScalarMultiply(RandomPointInUnitSphere(), Self->Fuzziness);
         Reflected = Vec3Add(Reflected, Fuzzed);
@@ -569,7 +610,7 @@ ComputeColor(ray3 Ray, renderable_list *Renderables, unsigned int Depth)
         else
         {
                 /* Compute background gradient. */
-                vec3 UnitDirection = Vec3Unit(Ray.Direction);
+                vec3 UnitDirection = Vec3Normalize(Ray.Direction);
                 float T = 0.5 * (UnitDirection.Y + 1.0);
 
                 vec3 A = { 1.0, 1.0, 1.0 };
@@ -623,8 +664,7 @@ main(int ArgCount, char **Arguments)
         RenderableListAdd(Renderables, &Sphere5, SphereHit);
 
         camera Camera;
-        CameraInit(&Camera, Vec3Init(0, 0, 0), Vec3Init(-2, -1, -1),
-                   Vec3Init(4, 0, 0), Vec3Init(0, 2, 0));
+        CameraInit(&Camera, Vec3Init(-2,2,1), Vec3Init(0,0,-1), Vec3Init(0,1,0), 30, (float)NumCols / (float)NumRows);
 
         for(int Y = NumRows-1; Y >= 0; Y--)
         {
