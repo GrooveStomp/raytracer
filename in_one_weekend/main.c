@@ -1,7 +1,7 @@
 #define _XOPEN_SOURCE /* drand48 */
 #include <stdbool.h>
+#include <stdlib.h> /* drand48, srand48 */
 #include <math.h>
-#include <stdlib.h> /* drand48 */
 
 float
 DegreesToRadians(float Degrees)
@@ -11,7 +11,8 @@ DegreesToRadians(float Degrees)
         return(Result);
 }
 
-float RadiansToDegrees(float Radians)
+float
+RadiansToDegrees(float Radians)
 {
         float Ratio = 180.0 / M_PI;
         float Result = Radians * Ratio;
@@ -585,7 +586,8 @@ DielectricScatter(void *Material, ray3 Ray, hit_record *Record, vec3 *Attenuatio
 /* The following #includes are only required for main() */
 #include <stdio.h>
 #include <alloca.h>
-#include <float.h>
+#include <float.h> /* FLT_MAX */
+#include <time.h> /* time */
 
 vec3
 RandomPointInUnitSphere(void)
@@ -668,45 +670,111 @@ ComputeColor(ray3 Ray, renderable_list *Renderables, unsigned int Depth)
 int
 main(int ArgCount, char **Arguments)
 {
-        int NumCols = 200;
-        int NumRows = 100;
-        int NumSamples = 100;
+        srand48(time(NULL));
+        int NumCols = 640;
+        int NumRows = 480;
+        int NumSamples = 25;
 
         printf("P3\n%i %i\n255\n", NumCols, NumRows);
 
-        unsigned int NumRenderables = 5;
-        renderable_list *Renderables;
-        Renderables = RenderableListInit(alloca(RenderableListAllocSize(NumRenderables)), NumRenderables);
+        /* unsigned int NumRenderables = 5; */
+        /* renderable_list *Renderables; */
+        /* Renderables = RenderableListInit(alloca(RenderableListAllocSize(NumRenderables)), NumRenderables); */
 
-        lambertian Material1 = LambertianInit(Vec3Init(0.1, 0.2, 0.5));
-        sphere Sphere1 = SphereInit(Vec3Init(0,0,-1), 0.5,
-                                    &Material1, LambertianScatter);
+        /* lambertian Material1 = LambertianInit(Vec3Init(0.1, 0.2, 0.5)); */
+        /* sphere Sphere1 = SphereInit(Vec3Init(0,0,-1), 0.5, */
+        /*                             &Material1, LambertianScatter); */
+        /* RenderableListAdd(Renderables, &Sphere1, SphereHit); */
+
+        /* lambertian Material2 = LambertianInit(Vec3Init(0.8, 0.8, 0.0)); */
+        /* sphere Sphere2 = SphereInit(Vec3Init(0,-100.5,-1), 100, */
+        /*                             &Material2, LambertianScatter); */
+        /* RenderableListAdd(Renderables, &Sphere2, SphereHit); */
+
+        /* metal Material3 = MetalInit(Vec3Init(0.8, 0.6, 0.2), 0.3); */
+        /* sphere Sphere3 = SphereInit(Vec3Init(1,0,-1), 0.5, */
+        /*                             &Material3, MetalScatter); */
+        /* RenderableListAdd(Renderables, &Sphere3, SphereHit); */
+
+        /* dielectric Material4 = DielectricInit(1.5); */
+        /* sphere Sphere4 = SphereInit(Vec3Init(-1,0,-1), 0.5, */
+        /*                             &Material4, DielectricScatter); */
+        /* RenderableListAdd(Renderables, &Sphere4, SphereHit); */
+
+        /* dielectric Material5 = DielectricInit(1.5); */
+        /* sphere Sphere5 = SphereInit(Vec3Init(-1,0,-1), -0.45, */
+        /*                             &Material5, DielectricScatter); */
+        /* RenderableListAdd(Renderables, &Sphere5, SphereHit); */
+
+        unsigned int NumRenderables = 500;
+        renderable_list *Renderables;
+        Renderables = RenderableListInit(alloca(RenderableListAllocSize(NumRenderables + 1)), NumRenderables + 1);
+
+        sphere *Spheres = (sphere *)malloc(sizeof(sphere) * NumRenderables);
+
+        int I = 0;
+        for(int A = -11; A < 11; A++)
+        {
+                for(int B = -11; B < 11; B++)
+                {
+                        float ChooseMat = drand48();
+                        vec3 Center = Vec3Init(A + 0.9 * drand48(), 0.2, B + 0.9 * drand48());
+
+                        if(Vec3Length(Vec3Subtract(Center, Vec3Init(4, 0.2, 0))) > 0.9)
+                        {
+                                sphere *Sphere = &Spheres[I];
+                                if(ChooseMat < 0.8) /* diffuse */
+                                {
+                                        lambertian *Material = (lambertian *)malloc(sizeof(lambertian));
+                                        *Material = LambertianInit(Vec3Init(drand48() * drand48(),
+                                                                            drand48() * drand48(),
+                                                                            drand48() * drand48()));
+
+                                        *Sphere = SphereInit(Center, 0.2, Material, LambertianScatter);
+                                }
+                                else if(ChooseMat < 0.95) /* metal */
+                                {
+                                        metal *Material = (metal *)malloc(sizeof(metal));
+                                        *Material = MetalInit(Vec3Init(0.5 * (1 + drand48()),
+                                                                       0.5 * (1 + drand48()),
+                                                                       0.5 * (1 + drand48())),
+                                                              0.5 * (1 + drand48()));
+
+                                        *Sphere = SphereInit(Center, 0.2, Material, MetalScatter);
+                                }
+                                else /* glass */
+                                {
+                                        dielectric *Material = (dielectric *)malloc(sizeof(dielectric));
+                                        *Material = DielectricInit(1.5);
+                                        *Sphere = SphereInit(Center, 0.2, Material, DielectricScatter);
+                                }
+                                RenderableListAdd(Renderables, Sphere, SphereHit);
+                                I++;
+                        }
+                }
+        }
+
+        /* World */
+        lambertian Material1 = LambertianInit(Vec3Init(0.5, 0.5, 0.5));
+        sphere Sphere1 = SphereInit(Vec3Init(0,-1000,0), 1000, &Material1, LambertianScatter);
         RenderableListAdd(Renderables, &Sphere1, SphereHit);
 
-        lambertian Material2 = LambertianInit(Vec3Init(0.8, 0.8, 0.0));
-        sphere Sphere2 = SphereInit(Vec3Init(0,-100.5,-1), 100,
-                                    &Material2, LambertianScatter);
+        dielectric Material2 = DielectricInit(1.5);
+        sphere Sphere2 = SphereInit(Vec3Init(0,1,0), 1.0, &Material2, DielectricScatter);
         RenderableListAdd(Renderables, &Sphere2, SphereHit);
 
-        metal Material3 = MetalInit(Vec3Init(0.8, 0.6, 0.2), 0.3);
-        sphere Sphere3 = SphereInit(Vec3Init(1,0,-1), 0.5,
-                                    &Material3, MetalScatter);
+        lambertian Material3 = LambertianInit(Vec3Init(0.4, 0.2, 0.1));
+        sphere Sphere3 = SphereInit(Vec3Init(-4,1,0), 1.0, &Material3, LambertianScatter);
         RenderableListAdd(Renderables, &Sphere3, SphereHit);
 
-        dielectric Material4 = DielectricInit(1.5);
-        sphere Sphere4 = SphereInit(Vec3Init(-1,0,-1), 0.5,
-                                    &Material4, DielectricScatter);
+        metal Material4 = MetalInit(Vec3Init(0.7, 0.6, 0.5), 0.0);
+        sphere Sphere4 = SphereInit(Vec3Init(4,1,0), 1.0, &Material4, MetalScatter);
         RenderableListAdd(Renderables, &Sphere4, SphereHit);
 
-        dielectric Material5 = DielectricInit(1.5);
-        sphere Sphere5 = SphereInit(Vec3Init(-1,0,-1), -0.45,
-                                    &Material5, DielectricScatter);
-        RenderableListAdd(Renderables, &Sphere5, SphereHit);
-
-        vec3 LookFrom = Vec3Init(3,3,2);
-        vec3 LookAt = Vec3Init(0,0,-1);
-        float DistanceToFocus = Vec3Length(Vec3Subtract(LookFrom, LookAt));
-        float Aperture = 2.0;
+        vec3 LookFrom = Vec3Init(13,2,3);
+        vec3 LookAt = Vec3Init(0,0,0);
+        float DistanceToFocus = 10;
+        float Aperture = 0.1;
         camera Camera;
         CameraInit(&Camera, LookFrom, LookAt, Vec3Init(0,1,0), 20,
                    (float)NumCols / (float)NumRows, Aperture, DistanceToFocus);
