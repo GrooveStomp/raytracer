@@ -1,6 +1,7 @@
 #define _XOPEN_SOURCE /* drand48 */
 #include <stdbool.h>
 #include <math.h>
+#include <stdlib.h> /* drand48 */
 
 /******************************************************************************
  * vec3 Interface
@@ -121,6 +122,28 @@ Vec3Reflect(vec3 Vector, vec3 Normal)
         Result = Vec3Subtract(Vector, Result);
 
         return(Result);
+}
+
+bool
+Vec3Refract(vec3 Vector, vec3 Normal, float RefractionRatio, vec3 *Refracted)
+{
+        vec3 UnitVector = Vec3Unit(Vector);
+        float Dot = Vec3Dot(UnitVector, Normal);
+        float Discriminant = 1.0 - RefractionRatio * RefractionRatio * (1 - Dot * Dot);
+
+        if(Discriminant > 0)
+        {
+                vec3 Temp = Vec3ScalarMultiply(Normal, Dot);
+                Temp = Vec3Subtract(UnitVector, Temp);
+                Temp = Vec3ScalarMultiply(Temp, RefractionRatio);
+
+                vec3 Temp2 = Vec3ScalarMultiply(Normal, sqrt(Discriminant));
+                *Refracted = Vec3Subtract(Temp, Temp2);
+
+                return(true);
+        }
+
+        return(false);
 }
 
 /******************************************************************************
@@ -416,12 +439,88 @@ MetalScatter(void *Material, ray3 Ray, hit_record *Record, vec3 *Attenuation, ra
 }
 
 /******************************************************************************
+ * dielectric (Material) Interface
+ ******************************************************************************/
+typedef struct
+{
+        float RefractionIndex;
+} dielectric;
+
+dielectric
+DielectricInit(float RefractionIndex)
+{
+        dielectric Result;
+        Result.RefractionIndex = RefractionIndex;
+        return(Result);
+}
+
+float Schlick(float Cosine, float RefractionIndex)
+{
+        float R0 = (1 - RefractionIndex) / (1 + RefractionIndex);
+        R0 = R0 * R0;
+
+        float Result = R0 + (1 - R0) * pow((1 - Cosine), 5);
+        return(Result);
+}
+
+bool
+DielectricScatter(void *Material, ray3 Ray, hit_record *Record, vec3 *Attenuation, ray3 *Scattered)
+{
+        dielectric *Self = (dielectric *)Material;
+
+        vec3 OutwardNormal;
+        vec3 Reflected = Vec3Reflect(Ray.Direction, Record->Normal);
+
+        float RefractionRatio;
+        *Attenuation = Vec3Init(1, 1, 1);
+
+        vec3 Refracted;
+        float ReflectionProbability;
+        float Cosine;
+
+        if(Vec3Dot(Ray.Direction, Record->Normal) > 0)
+        {
+                OutwardNormal = Vec3Init(-Record->Normal.X, -Record->Normal.Y, -Record->Normal.Z);
+                RefractionRatio = Self->RefractionIndex;
+
+                float DirectionLength = Vec3Length(Ray.Direction);
+                float Dot = Vec3Dot(Ray.Direction, Record->Normal);
+                Cosine = Self->RefractionIndex * Dot / DirectionLength;
+        }
+        else
+        {
+                OutwardNormal = Record->Normal;
+                RefractionRatio = 1.0 / Self->RefractionIndex;
+                float DirectionLength = Vec3Length(Ray.Direction);
+                float Dot = Vec3Dot(Ray.Direction, Record->Normal);
+                Cosine = -Dot / DirectionLength;
+        }
+
+        if(Vec3Refract(Ray.Direction, OutwardNormal, RefractionRatio, &Refracted))
+        {
+                ReflectionProbability = Schlick(Cosine, Self->RefractionIndex);
+        }
+        else
+        {
+                *Scattered = Ray3Init(Record->Point, Reflected);
+                ReflectionProbability = 1.0;
+        }
+
+        if(drand48() < ReflectionProbability)
+                *Scattered = Ray3Init(Record->Point, Reflected);
+        else
+                *Scattered = Ray3Init(Record->Point, Refracted);
+
+
+        return(true);
+}
+
+/******************************************************************************
  * main()
  ******************************************************************************/
 
 /* The following #includes are only required for main() */
 #include <stdio.h>
-#include <stdlib.h>
 #include <alloca.h>
 #include <float.h>
 
@@ -494,11 +593,11 @@ main(int ArgCount, char **Arguments)
 
         printf("P3\n%i %i\n255\n", NumCols, NumRows);
 
-        unsigned int NumRenderables = 4;
+        unsigned int NumRenderables = 5;
         renderable_list *Renderables;
         Renderables = RenderableListInit(alloca(RenderableListAllocSize(NumRenderables)), NumRenderables);
 
-        lambertian Material1 = LambertianInit(Vec3Init(0.8, 0.3, 0.3));
+        lambertian Material1 = LambertianInit(Vec3Init(0.1, 0.2, 0.5));
         sphere Sphere1 = SphereInit(Vec3Init(0,0,-1), 0.5,
                                     &Material1, LambertianScatter);
         RenderableListAdd(Renderables, &Sphere1, SphereHit);
@@ -513,10 +612,15 @@ main(int ArgCount, char **Arguments)
                                     &Material3, MetalScatter);
         RenderableListAdd(Renderables, &Sphere3, SphereHit);
 
-        metal Material4 = MetalInit(Vec3Init(0.8, 0.8, 0.8), 1.0);
+        dielectric Material4 = DielectricInit(1.5);
         sphere Sphere4 = SphereInit(Vec3Init(-1,0,-1), 0.5,
-                                    &Material4, MetalScatter);
+                                    &Material4, DielectricScatter);
         RenderableListAdd(Renderables, &Sphere4, SphereHit);
+
+        dielectric Material5 = DielectricInit(1.5);
+        sphere Sphere5 = SphereInit(Vec3Init(-1,0,-1), -0.45,
+                                    &Material5, DielectricScatter);
+        RenderableListAdd(Renderables, &Sphere5, SphereHit);
 
         camera Camera;
         CameraInit(&Camera, Vec3Init(0, 0, 0), Vec3Init(-2, -1, -1),
