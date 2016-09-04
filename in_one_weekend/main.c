@@ -215,6 +215,9 @@ typedef struct hit_record
 vec3
 RandomPointInUnitSphere(void);
 
+vec3
+RandomPointInUnitDisk(void);
+
 typedef bool (*hit_fn)(void *Renderable, ray3 Ray, float Min, float Max, hit_record *Record);
 typedef bool (*scatter_fn)(void *Material, ray3 Ray, hit_record *Record, vec3 *Attenuation, ray3 *Scattered);
 
@@ -370,11 +373,18 @@ typedef struct
         vec3 LowerLeftCorner;
         vec3 Horizontal;
         vec3 Vertical;
+        vec3 U;
+        vec3 V;
+        vec3 W;
+        float LensRadius;
 } camera;
 
 void
-CameraInit(camera *Self, vec3 LookFrom, vec3 LookAt, vec3 Up, float VerticalFOV, float AspectRatio)
+CameraInit(camera *Self, vec3 LookFrom, vec3 LookAt, vec3 Up, float VerticalFOV,
+           float AspectRatio, float Aperture, float FocusDistance)
 {
+        Self->LensRadius = Aperture / 2.0;
+
         float Theta = DegreesToRadians(VerticalFOV);
         float HalfHeight = tan(Theta / 2.0);
         float HalfWidth = AspectRatio * HalfHeight;
@@ -383,32 +393,44 @@ CameraInit(camera *Self, vec3 LookFrom, vec3 LookAt, vec3 Up, float VerticalFOV,
         vec3 U = Vec3Normalize(Vec3Cross(Up, W));
         vec3 V = Vec3Cross(W, U);
 
-        vec3 HalfWidthU = Vec3ScalarMultiply(U, HalfWidth);
-        vec3 HalfHeightV = Vec3ScalarMultiply(V, HalfHeight);
+        vec3 HalfWidthU = Vec3ScalarMultiply(U, HalfWidth * FocusDistance);
+        vec3 HalfHeightV = Vec3ScalarMultiply(V, HalfHeight * FocusDistance);
+        vec3 FocusDistanceW = Vec3ScalarMultiply(W, FocusDistance);
         vec3 Accumulator;
         Accumulator = Vec3Subtract(LookFrom, HalfWidthU);
         Accumulator = Vec3Subtract(Accumulator, HalfHeightV);
-        Accumulator = Vec3Subtract(Accumulator, W);
+        Accumulator = Vec3Subtract(Accumulator, FocusDistanceW);
 
         Self->LowerLeftCorner = Accumulator;
         Self->Horizontal = Vec3ScalarMultiply(HalfWidthU, 2);
         Self->Vertical = Vec3ScalarMultiply(HalfHeightV, 2);
         Self->Origin = LookFrom;
+        Self->U = U;
+        Self->V = V;
+        Self->W = W;
 }
 
 ray3
 CameraGetRay(camera *Self, float S, float T)
 {
-        vec3 HorizontalS = Vec3ScalarMultiply(Self->Horizontal, S);
-        vec3 VerticalT = Vec3ScalarMultiply(Self->Vertical, T);
-        vec3 Accumulator;
-        Accumulator = Vec3Add(Self->LowerLeftCorner, HorizontalS);
-        Accumulator = Vec3Add(Accumulator, VerticalT);
-        Accumulator = Vec3Subtract(Accumulator, Self->Origin);
+        vec3 Random = Vec3ScalarMultiply(RandomPointInUnitDisk(), Self->LensRadius);
+        vec3 Offset = Vec3Add(
+                Vec3ScalarMultiply(Self->U, Random.X),
+                Vec3ScalarMultiply(Self->V, Random.Y));
+
+        vec3 Origin = Vec3Add(Self->Origin, Offset);
+        vec3 Direction = Vec3Add(
+                Self->LowerLeftCorner,
+                Vec3ScalarMultiply(Self->Horizontal, S));
+        Direction = Vec3Add(
+                Direction,
+                Vec3ScalarMultiply(Self->Vertical, T));
+        Direction = Vec3Subtract(Direction, Self->Origin);
+        Direction = Vec3Subtract(Direction, Offset);
 
         ray3 Result;
-        Result.Origin = Self->Origin;
-        Result.Direction = Accumulator;
+        Result.Origin = Origin;
+        Result.Direction = Direction;
 
         return(Result);
 }
@@ -571,15 +593,33 @@ RandomPointInUnitSphere(void)
         vec3 Point;
 
         float SquaredLength = 0;
-        do {
+        do
+        {
                 vec3 Temp = Vec3Init(drand48(), drand48(), drand48());
                 Temp = Vec3ScalarMultiply(Temp, 2.0);
                 Temp = Vec3Subtract(Temp, Vec3Init(1,1,1));
                 Point = Temp;
 
-                float Length = Vec3Length(Point);
-                SquaredLength = Length * Length;
+                SquaredLength = Vec3Dot(Point, Point);
+        } while(SquaredLength >= 1.0);
 
+        return(Point);
+}
+
+vec3
+RandomPointInUnitDisk(void)
+{
+        vec3 Point;
+
+        float SquaredLength = 0;
+        do
+        {
+                vec3 Temp = Vec3Init(drand48(), drand48(), 0);
+                Temp = Vec3ScalarMultiply(Temp, 2.0);
+                Temp = Vec3Subtract(Temp, Vec3Init(1,1,0));
+                Point = Temp;
+
+                SquaredLength = Vec3Dot(Point, Point);
         } while(SquaredLength >= 1.0);
 
         return(Point);
@@ -663,8 +703,13 @@ main(int ArgCount, char **Arguments)
                                     &Material5, DielectricScatter);
         RenderableListAdd(Renderables, &Sphere5, SphereHit);
 
+        vec3 LookFrom = Vec3Init(3,3,2);
+        vec3 LookAt = Vec3Init(0,0,-1);
+        float DistanceToFocus = Vec3Length(Vec3Subtract(LookFrom, LookAt));
+        float Aperture = 2.0;
         camera Camera;
-        CameraInit(&Camera, Vec3Init(-2,2,1), Vec3Init(0,0,-1), Vec3Init(0,1,0), 30, (float)NumCols / (float)NumRows);
+        CameraInit(&Camera, LookFrom, LookAt, Vec3Init(0,1,0), 20,
+                   (float)NumCols / (float)NumRows, Aperture, DistanceToFocus);
 
         for(int Y = NumRows-1; Y >= 0; Y--)
         {
