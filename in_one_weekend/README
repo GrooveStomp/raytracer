@@ -1,0 +1,14 @@
+--------------------------------------------------------------------------------
+ Overview
+--------------------------------------------------------------------------------
+This work is the result of an Amazon Kindle book named "Ray Tracing In One
+Weekend." See the website:
+https://in1weekend.blogspot.com/2016/01/ray-tracing-in-one-weekend.html
+
+--------------------------------------------------------------------------------
+ Usage
+--------------------------------------------------------------------------------
+> cd /path/to/project
+> source env/shell
+> build
+> ./raytrace --help
